@@ -82,4 +82,3 @@ const manifest = {
 };
 await fs.writeFile(path.join(output, "template-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 console.log(JSON.stringify(manifest, null, 2));
-
