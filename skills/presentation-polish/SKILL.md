@@ -1,0 +1,81 @@
+---
+name: presentation-polish
+description: Audit and improve PowerPoint or Google Slides decks created with the Presentations skill, with special attention to typography systems, mathematical notation, semantic grouping, geometry, visual hierarchy, and native editability.
+---
+
+# Presentation Polish
+
+Use this skill as a deliberate second pass after `presentations:Presentations`, or when a user asks for a new deck that must be polished, visually varied, mathematically legible, and easy to edit. It covers both an existing draft and a from-scratch deck. It does not replace the source skill's Artifact Tool workflow.
+
+## First principle
+
+Polish the reading path before adding decoration. Every slide needs one main claim, one visual anchor, and a visible reading order. Treat typography, formulas, labels, connectors, and object grouping as part of the argument, not as finishing touches.
+
+## Architecture boundary
+
+This is a second-pass quality layer after `presentations:Presentations`:
+
+- `presentations:Presentations` remains the authoring layer and uses Artifact Tool through JavaScript.
+- `presentation-polish` loads, audits, diagnoses, repairs, renders, and verifies the existing deck.
+- Package-level OOXML inspection is read-only diagnostics only. It is not an authoring path.
+
+Do not replace Artifact Tool with `python-pptx`, PptxGenJS, LibreOffice UNO, or hand-authored PPTX XML. Do not implement OMML by hand. If the active runtime does not expose a dependable native equation API, report `NATIVE_MATH_UNAVAILABLE` and use the documented editable-text or vector fallback honestly.
+
+## Equation contract
+
+Every formula-like object must have an explicit editability level:
+
+| Level | Type | Meaning |
+| ---: | --- | --- |
+| 3 | `native_math` | Structured Office Math object preserved through export/render |
+| 2 | `editable_math_text` | Normal editable text object with a deliberate math font and complete notation |
+| 1 | `vector_equation` | SVG/vector fallback; scalable and editable as graphic geometry, not as math characters |
+| 0 | `raster_equation` | Image fallback; not acceptable for a repair unless unavoidable and disclosed |
+
+Use `equation_mode="auto"` by default: preserve stable Level 3, preserve good simple Level 2, rebuild poor simple/moderate Level 2, and permit Level 1 only for complex source-backed notation when a trusted SVG pipeline materially improves fidelity. Never call a vector or raster equation an “editable equation” without naming its level. See `references/equation-strategy.md` for the complexity heuristic, font policy, diagnostic codes, SVG rules, and claim boundary.
+
+## Review profiles
+
+Use the existing visual language as the first constraint. For technical, academic, or scientific decks, the default profile is restrained paper/conference style: clear hierarchy, disciplined formulas, quiet surfaces, and high information density without decorative noise. Do not force a serif theme or replace a stable design system merely because the content is academic. Use `preferred_font`, `effective_font`, `fallback_font`, and `font_availability` explicitly; test Latin Modern Math in ordinary text shapes and fall back to Cambria Math when the runtime or render is unstable.
+
+## When generating from zero
+
+Before opening the slide canvas, write the audience assumption, two to five learning outcomes, the concept dependency chain, and the slide-role map. Check that each later concept depends only on terms already introduced. For a technical deck, keep a source-of-truth glossary for notation, definitions, units, and any illustrative data; a visual redesign must not silently change the technical meaning.
+
+## Required workflow
+
+1. Load the source `presentations:Presentations` skill and only the relevant implementation, style, native-evidence, and finalization references. For local slide authoring, load workspace dependencies and use the bundled Artifact Tool through JavaScript. Never author with `python-pptx` or PptxGenJS.
+2. Establish a baseline before changing anything. If a deck exists, run `scripts/audit_presentation.py`, inspect the package/layout, render every slide, and view both a montage and individual slides at readable size. Record findings by slide, not just as general impressions. If no deck exists, create a slide-role map and a design-token sheet first.
+3. Normalize content before styling. Rewrite long copy into labels, callouts, or diagrams. Remove decorative micro-text, duplicate subtitles, and floating symbols that do not have a clear owner. Keep no more than three major content zones unless the slide is intentionally a full-page map or chart.
+4. Set explicit design tokens once and reuse them: resolved font families, type scale, color roles, safe margins, spacing grid, corner radius, stroke weights, shadows, icon size, and formula style. Resolve fonts with `resolvePresentationFont()`, pass an explicit `fontPolicy` to finalization when supported, and record the actual resolved family in the build notes.
+5. Choose a layout by semantic role. Vary the visual grammar across the deck: cover, problem scene, interaction loop, system map, state graph, timeline, value split, equation-as-visual, iteration loop, model split, episode trace, update pipeline, matrix plus chart, two-lane comparison, and synthesis map are different roles. Do not alternate dark and light backgrounds mechanically, and do not repeat a title-plus-card-grid template on consecutive slides.
+6. Build diagrams as native objects. Use independent shapes, connectors, arrows, tables, and charts. Keep a label next to the object it describes, route connectors behind nodes or around text, and group semantically related objects when the API supports grouping. Do not flatten a diagram or an entire slide into an image.
+7. Treat formulas as designed objects. Classify complexity and editability before repair. Use an Office equation object only when the active runtime actually supports and preserves it. Otherwise use one independent, wide, editable formula text object with a math-capable typeface, a canonical notation, deliberate baseline/superscript/subscript treatment, and enough horizontal space to stay on one line. For complex source-backed notation, use only the controlled vector fallback described in `references/equation-strategy.md`. Never split one equation into scattered text boxes or allow a formula to wrap silently.
+8. Use native data objects. Required tables and charts must remain editable. Put chart labels, units, legends, and conceptual-data disclosures in the chart or its immediate title area; do not duplicate every chart label in unrelated text boxes. Any illustrative score must be labeled `Conceptual illustration` and, when appropriate, explained in speaker notes.
+9. Run the full QA gate. Check package integrity, slide count, aspect ratio, overflow, heading fit, font family approval, small-text exceptions, formula wrapping, connector clarity, native chart/table presence, and editable object counts. Render the final candidate again and inspect each slide. Revisions use a new output filename so the baseline remains recoverable.
+10. Handoff honestly. Report the output path, slide count, major changes, native/editable elements, and any runtime limitation such as a formula fallback. Do not claim that PowerPoint itself was opened or edited unless that was actually verified.
+
+## Non-negotiable quality rules
+
+- Use at most two primary typefaces unless a third is a deliberate, documented display or math face. Set Latin, Chinese, and math policy explicitly; do not mix theme defaults with ad hoc Arial/Calibri/CJK choices.
+- Use a readable hierarchy: cover title at least 42 pt, slide title at least 32 pt, normal body at least 18 pt, diagram labels normally at least 14 pt, and footnotes only when necessary at 11–12 pt. Prefer editing copy or layout over shrinking text.
+- Main formulas should normally be 24–30 pt and compact formulas at least 18–22 pt. Keep one formula grammar across slides. Use arrows and symbols inside diagrams or equations, not as filler punctuation in prose.
+- A card is allowed only when it groups a real concept. Avoid a page made from many similarly sized UI cards, badges, pills, or isolated stat fragments.
+- A title, subtitle, kicker, footer, folio, and decorative numeral are optional. Keep only the elements that support the slide's claim.
+- Align to a visible grid and maintain safe margins. Do not let a formula, heading, icon, or connector touch a frame edge. Test the longest title and the widest formula, not just the average case.
+- Use no more than three accent colors on one slide. Background changes should signal section or function, not page number.
+- Use a small, consistent icon grammar. Icons must have a semantic owner, common stroke/weight, a common baseline, and a meaningful size relationship with nearby text.
+- Preserve editability of the important evidence. Photos or complex scene illustrations may be images, but process diagrams, state graphs, tables, charts, labels, and equations must stay as independent editable objects whenever the runtime permits.
+
+## Reference routing
+
+Read only what the task needs:
+
+- `references/issue-audit-reinforcement-learning.md` for the observed failure modes in the supplied reinforcement-learning deck and the evidence behind the fixes.
+- `references/authoring-and-layout-rules.md` when building or substantially restructuring a deck from zero.
+- `references/typography-and-math.md` when the deck contains formulas, mixed Chinese/English text, technical notation, or crowded labels.
+- `references/equation-strategy.md` when equations need editability classification, complexity decisions, font availability reporting, SVG fallback, or equation-specific diagnostics.
+- `references/qa-checklist.md` before export or when a rendered deck looks plausible but still feels misaligned.
+
+The helper `scripts/audit_presentation.py` is read-only. It is a preflight aid, not an authoring path.
+The helper `scripts/equation_diagnostics.py` is also read-only. Run it before and after formula repair; its JSON output is advisory and never replaces rendered inspection.

@@ -1,0 +1,8 @@
+interface:
+  display_name: "Presentation Polish"
+  short_description: "Audit and polish fonts, math, layout, hierarchy, and editability"
+  brand_color: "#2563EB"
+  default_prompt: "Use $presentation-polish to audit and polish a PowerPoint deck for clear hierarchy, stable math layout, and native editability."
+
+policy:
+  allow_implicit_invocation: true

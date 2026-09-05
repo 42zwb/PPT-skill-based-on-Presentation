@@ -1,0 +1,22 @@
+# Python and local runtime artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Generated presentation QA outputs
+.presentation_polish_*/
+rendered/
+rendered_*/
+*.inspect.ndjson
+*.pptx
+*.pptm
+*.pdf
+*.png
+*.jpg
+*.jpeg
+
+# Local editor/system files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
