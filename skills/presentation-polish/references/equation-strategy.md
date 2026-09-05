@@ -53,11 +53,15 @@ Math.
 6. Never introduce a raster screenshot as a repair shortcut.
 
 For a new academic/scientific deck, the recommended profile is
-`equationMode="remote_latex"` for standalone display equations. This does not
-mean that every formula must be uploaded. Trivial inline notation remains a
-Level 2 editable text object; remote rendering is selected for source-backed
-moderate/complex notation when `allowRemoteEquationRendering=true` and the
-project permits sending the equation source to the configured service.
+`equationMode="remote_latex"` for every standalone/display or nontrivial
+equation whose canonical source is known. In this profile, character-level
+editability is intentionally secondary: a standard LaTeX SVG is preferred to
+an improvised text approximation when it materially improves fractions,
+integrals, expectations, scripts, roots, limits, or alignment. Trivial inline
+symbols may remain Level 2 text when they are genuinely inline and do not need
+display-math composition. Remote rendering is selected when
+`allowRemoteEquationRendering=true` and the project permits sending only the
+equation source to the configured service.
 
 Latin Modern Math in an ordinary PowerPoint text shape is not LaTeX and is not
 Office Math. Record it as `editable_math_text_approximation` (a Level 2 text
@@ -194,7 +198,9 @@ The result carries `sourceLatex`, `normalizedLatex`, `provider`, `cacheKey`,
 `asset.blob` through Artifact Tool's `slide.images.add({ blob,
 contentType:"image/svg+xml", fit:"contain", position })`. Do not put the
 equation in a full-slide image and do not convert the returned SVG into a PNG
-just to simplify insertion.
+just to simplify insertion. Formula SVGs are intentionally Level 1 vector
+assets in this profile; report that they are scalable and visually faithful,
+but not character-editable Office Math objects.
 
 The implementation has a provider abstraction. `equationProvider="auto"`
 selects the verified CodeCogs SVG provider when no custom endpoint is supplied;

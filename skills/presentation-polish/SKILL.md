@@ -1,11 +1,11 @@
 ---
 name: presentation-polish
-description: Audit and improve PowerPoint or Google Slides decks created with the Presentations skill, with special attention to typography systems, mathematical notation, semantic grouping, geometry, visual hierarchy, and native editability.
+description: Audit and improve PowerPoint or Google Slides decks created with the Presentations skill, with special attention to template fidelity, typography systems, standard LaTeX notation, semantic grouping, geometry, visual hierarchy, and native editability.
 ---
 
 # Presentation Polish
 
-Use this skill as a deliberate second pass after `presentations:Presentations`, or when a user asks for a new deck that must be polished, visually varied, mathematically legible, and easy to edit. It covers both an existing draft and a from-scratch deck. It does not replace the source skill's Artifact Tool workflow.
+Use this skill as a deliberate second pass after `presentations:Presentations`, or when a user asks for a deck that must be polished, visually varied, mathematically legible, and easy to inspect. It covers an existing draft and a template-first reconstruction. It does not replace the source skill's Artifact Tool workflow.
 
 ## First principle
 
@@ -19,7 +19,20 @@ This is a second-pass quality layer after `presentations:Presentations`:
 - `presentation-polish` loads, audits, diagnoses, repairs, renders, and verifies the existing deck.
 - Package-level OOXML inspection is read-only diagnostics only. It is not an authoring path.
 
-Do not replace Artifact Tool with `python-pptx`, PptxGenJS, LibreOffice UNO, or hand-authored PPTX XML. Do not implement OMML by hand. If the active runtime does not expose a dependable native equation API, report `NATIVE_MATH_UNAVAILABLE` and use the documented editable-text or vector fallback honestly. The remote LaTeX helper below is an equation-asset step only; it is not a second PPTX engine.
+Do not replace Artifact Tool with `python-pptx`, PptxGenJS, LibreOffice UNO, or hand-authored PPTX XML. Do not implement OMML by hand. If the active runtime does not expose a dependable native equation API, report `NATIVE_MATH_UNAVAILABLE` and use the documented vector fallback honestly. The remote LaTeX helper below is an equation-asset step only; it is not a second PPTX engine.
+
+## Template-first mode
+
+When the user provides a `.pptx` template, template-first mode is mandatory for the final deck:
+
+- Inspect and render every source-template slide before authoring. Identify the cover, content, comparison, image, section, and closing roles, plus the master/layout chrome, logos, theme colors, and dimensions.
+- Do not call `Presentation.create()`, `presentation.slides.add()`, or rebuild a visually equivalent deck from a blank canvas for the final deliverable. Import the template or a starter deck made by duplicating its source slides, then edit those imported slides.
+- Use a Windows-safe Artifact Tool-only starter flow when an official helper assumes a Unix `unzip` executable. The starter may duplicate selected template slides, remove only slide-local sample shapes with `slide.shapes.deleteAll()`, and export a reusable intermediate such as `template-starter.pptx`.
+- Keep the template's dimensions, master/layout relationships, repeated header/footer chrome, logos, and intentional negative space. New content belongs inside the template's content region; do not cover the template with a full-slide white rectangle or flatten its chrome into an image.
+- Treat template fidelity as a QA gate: compare source template, starter, and final renders; confirm dimensions/theme/layout IDs; and record the source template and mapping in the build manifest or speaker notes.
+- If the template has fewer slides than the requested deck, duplicate an appropriate template role rather than creating a blank slide. If a requested visual role has no exact source, choose the closest existing role and preserve its chrome.
+
+The final authoring script should make the provenance obvious by importing `template-starter.pptx` (or the original template when no starter is needed) and exporting the final PPTX. A template is a layout constraint, not a background image.
 
 ## Equation contract
 
@@ -32,7 +45,7 @@ Every formula-like object must have an explicit editability level:
 | 1 | `vector_equation` | SVG/vector fallback; scalable and editable as graphic geometry, not as Office Math characters |
 | 0 | `raster_equation` | Image fallback; not acceptable for a repair unless unavoidable and disclosed |
 
-Use `equation_mode="auto"` for an existing deck unless the user selects a stricter profile. For academic/scientific display formulas, the profile default is `equationMode: "remote_latex"`: preserve stable Level 3, keep trivial inline Level 2 text, and route source-backed moderate/complex display equations through the remote SVG helper when permission is explicit. Never call Latin Modern Math text a LaTeX equation or a native Office equation; it is only `editable_math_text_approximation`. Never call a vector or raster equation an “editable equation” without naming its level. See `references/equation-strategy.md` for the complexity heuristic, font policy, remote provider contract, diagnostic codes, SVG rules, and claim boundary.
+Use `equation_mode="auto"` for an existing deck unless the user selects a stricter profile. For academic/scientific decks, the profile default is `equationMode: "remote_latex"`: route every standalone/display or nontrivial equation with a known source through the remote standard-LaTeX SVG helper. Formula character-level editability is secondary in this profile; visual correctness, conventional notation, tight bounds, and consistent scale take priority. Keep simple inline symbols as text only when they are not a real display equation and remote rendering would harm the reading path. Never call Latin Modern Math text a LaTeX equation or a native Office equation; it is only `editable_math_text_approximation`. Never call a vector or raster equation an “editable equation” without naming its level. See `references/equation-strategy.md` for the source/provenance contract, provider rules, SVG checks, diagnostic codes, and claim boundary.
 
 ## Remote LaTeX → SVG asset pipeline
 
@@ -58,6 +71,7 @@ Recommended academic/scientific configuration:
   remoteLatexCache: true,
   preferSvgPaths: true,
   rejectRasterSvg: true,
+  allowRemoteEquationRendering: true, // only after the user/project authorizes source upload
   fallbackOnRemoteFailure: "keep_existing",
 }
 ```
@@ -74,13 +88,13 @@ Before opening the slide canvas, write the audience assumption, two to five lear
 
 ## Required workflow
 
-1. Load the source `presentations:Presentations` skill and only the relevant implementation, style, native-evidence, and finalization references. For local slide authoring, load workspace dependencies and use the bundled Artifact Tool through JavaScript. Never author with `python-pptx` or PptxGenJS.
-2. Establish a baseline before changing anything. If a deck exists, run `scripts/audit_presentation.py`, inspect the package/layout, render every slide, and view both a montage and individual slides at readable size. Record findings by slide, not just as general impressions. If no deck exists, create a slide-role map and a design-token sheet first.
+1. Load the source `presentations:Presentations` skill and only the relevant implementation, style, native-evidence, and finalization references. For local slide authoring, load workspace dependencies and use the bundled Artifact Tool through JavaScript. Never author with `python-pptx` or PptxGenJS. If a template is supplied, also read `references/template-following.md` before touching the deck.
+2. Establish a baseline before changing anything. If a deck exists, run `scripts/audit_presentation.py`, inspect the package/layout, render every slide, and view both a montage and individual slides at readable size. Record findings by slide, not just as general impressions. If a template exists, render the template as a separate baseline and map output slide roles to source-template slides before any content replacement. If no deck or template exists, create a slide-role map and a design-token sheet first.
 3. Normalize content before styling. Rewrite long copy into labels, callouts, or diagrams. Remove decorative micro-text, duplicate subtitles, and floating symbols that do not have a clear owner. Keep no more than three major content zones unless the slide is intentionally a full-page map or chart.
 4. Set explicit design tokens once and reuse them: resolved font families, type scale, color roles, safe margins, spacing grid, corner radius, stroke weights, shadows, icon size, and formula style. Resolve fonts with `resolvePresentationFont()`, pass an explicit `fontPolicy` to finalization when supported, and record the actual resolved family in the build notes.
 5. Choose a layout by semantic role. Vary the visual grammar across the deck: cover, problem scene, interaction loop, system map, state graph, timeline, value split, equation-as-visual, iteration loop, model split, episode trace, update pipeline, matrix plus chart, two-lane comparison, and synthesis map are different roles. Do not alternate dark and light backgrounds mechanically, and do not repeat a title-plus-card-grid template on consecutive slides.
 6. Build diagrams as native objects. Use independent shapes, connectors, arrows, tables, and charts. Keep a label next to the object it describes, route connectors behind nodes or around text, and group semantically related objects when the API supports grouping. Do not flatten a diagram or an entire slide into an image.
-7. Treat formulas as designed objects. Classify complexity and editability before repair. Use an Office equation object only when the active runtime actually supports and preserves it. Otherwise use one independent, wide, editable formula text object with a math-capable typeface, a canonical notation, deliberate baseline/superscript/subscript treatment, and enough horizontal space to stay on one line. For complex source-backed notation, use the controlled remote LaTeX → sanitized SVG fallback in `scripts/remote_latex_renderer.mjs` when permission is enabled and the render QA passes. Never split one equation into scattered text boxes or allow a formula to wrap silently.
+7. Treat formulas as designed objects. Classify source and display role before repair. In the academic/scientific profile, use the controlled remote LaTeX → sanitized SVG path for all standalone/display and nontrivial equations when the user has authorized equation-source upload; do not try to imitate a fraction, integral, expectation, superscript, subscript, or argmax with scattered text fragments. Use an Office equation object only when the active runtime actually supports and preserves it and the user explicitly prioritizes character editability. Otherwise insert one independent SVG with preserved aspect ratio, tight bounds, a canonical source string, and a clear visual owner. Never split one equation into scattered text boxes or allow a formula to wrap silently.
 8. Use native data objects. Required tables and charts must remain editable. Put chart labels, units, legends, and conceptual-data disclosures in the chart or its immediate title area; do not duplicate every chart label in unrelated text boxes. Any illustrative score must be labeled `Conceptual illustration` and, when appropriate, explained in speaker notes.
 9. Run the full QA gate. Check package integrity, slide count, aspect ratio, overflow, heading fit, font family approval, small-text exceptions, formula wrapping, connector clarity, native chart/table presence, editable object counts, remote SVG diagnostics, source/provenance retention, and absence of raster equation fallbacks. Render the final candidate again and inspect each slide. Revisions use a new output filename so the baseline remains recoverable.
 10. Handoff honestly. Report the output path, slide count, major changes, native/editable elements, and any runtime limitation such as a formula fallback. Do not claim that PowerPoint itself was opened or edited unless that was actually verified.
@@ -106,8 +120,10 @@ Read only what the task needs:
 - `references/authoring-and-layout-rules.md` when building or substantially restructuring a deck from zero.
 - `references/typography-and-math.md` when the deck contains formulas, mixed Chinese/English text, technical notation, or crowded labels.
 - `references/equation-strategy.md` when equations need editability classification, complexity decisions, font availability reporting, SVG fallback, or equation-specific diagnostics.
+- `references/template-following.md` when a source `.pptx` template is provided, when a deck must inherit an existing master/layout, or when the official template helper is not Windows-safe.
 - `references/qa-checklist.md` before export or when a rendered deck looks plausible but still feels misaligned.
 
 The helper `scripts/audit_presentation.py` is read-only. It is a preflight aid, not an authoring path.
 The helper `scripts/equation_diagnostics.py` is also read-only. Run it before and after formula repair; its JSON output is advisory and never replaces rendered inspection.
 The helper `scripts/remote_latex_renderer.mjs` creates only sanitized equation assets. `scripts/test_remote_latex_renderer.mjs` is the deterministic policy/cache/SVG unit test, and `scripts/build_remote_latex_test_deck.mjs` is the real-provider Artifact Tool regression fixture.
+The helper `scripts/inspect_template_reference.mjs` is a Windows-safe, read-only Artifact Tool inspector. Use it instead of an `unzip`-dependent template helper when needed. A Windows-safe starter helper should import the template, duplicate source roles, clear only slide-local sample shapes, and export an intermediate starter; the final content builder must then import that starter rather than creating a new presentation.
