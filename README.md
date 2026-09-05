@@ -60,3 +60,17 @@ skills/presentation-polish/scripts/equation_diagnostics.py
 
 它只读检查 PPTX，不会把普通文本公式误报为 Office Math；当前运行时没有
 可靠的原生 Office Math API 时，会明确报告 `NATIVE_MATH_UNAVAILABLE`。
+
+科研/数学类公式还提供一个不依赖本地 TeX 的远程 SVG 资产管线：
+
+```text
+skills/presentation-polish/scripts/remote_latex_renderer.mjs
+skills/presentation-polish/scripts/test_remote_latex_renderer.mjs
+skills/presentation-polish/scripts/build_remote_latex_test_deck.mjs
+```
+
+远程上传默认关闭，只有显式设置 `allowRemoteEquationRendering: true` 才会
+发送单条 LaTeX 源；默认优先返回经过 viewBox、路径、外部资源和 raster 检查
+的 SVG。它仍然是 Level 1 `vector_equation`，不是 Office Math 字符对象。实际
+ provider、缓存、超时、重试和降级策略见 skill 的
+`references/equation-strategy.md`。

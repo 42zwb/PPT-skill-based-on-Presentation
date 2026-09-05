@@ -22,6 +22,10 @@ Run the checks in this order. A passing structural test is necessary but not suf
 - [ ] Every formula is classified as Level 3 `native_math`, Level 2 `editable_math_text`, Level 1 `vector_equation`, or Level 0 `raster_equation`.
 - [ ] `NATIVE_MATH_UNAVAILABLE` is disclosed when the runtime has no dependable Office Math path; vector is never described as character-editable math.
 - [ ] Complex equations have either a complete readable text fallback or a source-backed, tight, sharp vector fallback; no screenshot equation is introduced.
+- [ ] A Latin Modern Math text box is not mislabeled as LaTeX or native math; flag `LATEX_STYLE_FALSE_POSITIVE` when appropriate.
+- [ ] For remote SVG equations, `allowRemoteEquationRendering` was explicit, only equation source was sent, and the source/provider/cache provenance was retained.
+- [ ] Remote SVG inspection passed `viewBox`, `path/use`, aspect-ratio, external-resource, font-dependency, white-background, and raster-content checks.
+- [ ] Remote diagnostics were reviewed: `REMOTE_LATEX_RENDERED` / `REMOTE_LATEX_CACHE_HIT` are expected successes; timeout, HTTP, invalid-SVG, disabled, fallback, and `EQUATION_RASTER_FALLBACK` remain disclosed.
 
 ## 3. Geometry and visual QA
 

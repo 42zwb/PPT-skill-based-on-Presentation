@@ -19,7 +19,7 @@ This is a second-pass quality layer after `presentations:Presentations`:
 - `presentation-polish` loads, audits, diagnoses, repairs, renders, and verifies the existing deck.
 - Package-level OOXML inspection is read-only diagnostics only. It is not an authoring path.
 
-Do not replace Artifact Tool with `python-pptx`, PptxGenJS, LibreOffice UNO, or hand-authored PPTX XML. Do not implement OMML by hand. If the active runtime does not expose a dependable native equation API, report `NATIVE_MATH_UNAVAILABLE` and use the documented editable-text or vector fallback honestly.
+Do not replace Artifact Tool with `python-pptx`, PptxGenJS, LibreOffice UNO, or hand-authored PPTX XML. Do not implement OMML by hand. If the active runtime does not expose a dependable native equation API, report `NATIVE_MATH_UNAVAILABLE` and use the documented editable-text or vector fallback honestly. The remote LaTeX helper below is an equation-asset step only; it is not a second PPTX engine.
 
 ## Equation contract
 
@@ -29,10 +29,40 @@ Every formula-like object must have an explicit editability level:
 | ---: | --- | --- |
 | 3 | `native_math` | Structured Office Math object preserved through export/render |
 | 2 | `editable_math_text` | Normal editable text object with a deliberate math font and complete notation |
-| 1 | `vector_equation` | SVG/vector fallback; scalable and editable as graphic geometry, not as math characters |
+| 1 | `vector_equation` | SVG/vector fallback; scalable and editable as graphic geometry, not as Office Math characters |
 | 0 | `raster_equation` | Image fallback; not acceptable for a repair unless unavoidable and disclosed |
 
-Use `equation_mode="auto"` by default: preserve stable Level 3, preserve good simple Level 2, rebuild poor simple/moderate Level 2, and permit Level 1 only for complex source-backed notation when a trusted SVG pipeline materially improves fidelity. Never call a vector or raster equation an “editable equation” without naming its level. See `references/equation-strategy.md` for the complexity heuristic, font policy, diagnostic codes, SVG rules, and claim boundary.
+Use `equation_mode="auto"` for an existing deck unless the user selects a stricter profile. For academic/scientific display formulas, the profile default is `equationMode: "remote_latex"`: preserve stable Level 3, keep trivial inline Level 2 text, and route source-backed moderate/complex display equations through the remote SVG helper when permission is explicit. Never call Latin Modern Math text a LaTeX equation or a native Office equation; it is only `editable_math_text_approximation`. Never call a vector or raster equation an “editable equation” without naming its level. See `references/equation-strategy.md` for the complexity heuristic, font policy, remote provider contract, diagnostic codes, SVG rules, and claim boundary.
+
+## Remote LaTeX → SVG asset pipeline
+
+Use `scripts/remote_latex_renderer.mjs` when mathematical fidelity matters more than character-level editability and the source LaTeX is known. It exports `renderLatexRemoteToSvg()` and `renderLatexBatch()`; the caller then inserts `result.asset.blob` with the Presentations/Artifact Tool image API. Keep this separation explicit:
+
+- No `pdflatex`, `xelatex`, `lualatex`, TeX distribution, Python math renderer, or local equation binary is required or allowed by this path.
+- The provider is selected through `REMOTE_LATEX_PROVIDER` / `equationProvider`; `auto` uses the verified CodeCogs SVG provider when no custom endpoint is configured, but the provider abstraction and endpoint remain replaceable.
+- Use `REMOTE_LATEX_ENDPOINT`, `REMOTE_LATEX_TIMEOUT_MS`, `REMOTE_LATEX_MAX_RETRIES`, `REMOTE_LATEX_CONCURRENCY`, and a cache directory as task-scoped configuration. The helper URL-encodes short GET requests, validates the HTTPS response, caches by SHA-256, deduplicates batch inputs, and caps concurrency at a small bounded pool.
+- Remote upload is privacy-gated. Set `allowRemoteEquationRendering: true` only after the user/project allows sending equation source to the configured service. Send only the formula source; never upload a slide, deck, notes, or private assets. `REMOTE_LATEX_DISABLED=1` must prevent network calls.
+- Accept SVG first. Inspect `viewBox`, `path/use`, text/font dependencies, external resources, white backgrounds, and raster `<image>` content. Reject dangerous TeX commands and unsafe SVG content. A PNG fallback is exceptional and must emit `EQUATION_RASTER_FALLBACK`; it is not the normal path.
+- Preserve the canonical LaTeX source and provider/cache diagnostics in speaker notes, build metadata, or the caller's manifest. The PPTX contains the SVG as a Level 1 vector asset; it does not magically become an Office Math object.
+
+Recommended academic/scientific configuration:
+
+```js
+{
+  equationMode: "remote_latex",
+  equationProvider: "auto",
+  strictLatexFidelity: true,
+  remoteLatexTimeoutMs: 8000,
+  remoteLatexMaxRetries: 2,
+  remoteLatexConcurrency: 3,
+  remoteLatexCache: true,
+  preferSvgPaths: true,
+  rejectRasterSvg: true,
+  fallbackOnRemoteFailure: "keep_existing",
+}
+```
+
+The helper's safe default is `allowRemoteEquationRendering: false`; a build must opt in deliberately. Polish of an existing deck defaults to `keep_existing` on provider failure, while a strict new-formula build may choose `error`. Read `references/equation-strategy.md` before enabling this path and run the remote-equation fixture before claiming that it works in the current environment.
 
 ## Review profiles
 
@@ -50,9 +80,9 @@ Before opening the slide canvas, write the audience assumption, two to five lear
 4. Set explicit design tokens once and reuse them: resolved font families, type scale, color roles, safe margins, spacing grid, corner radius, stroke weights, shadows, icon size, and formula style. Resolve fonts with `resolvePresentationFont()`, pass an explicit `fontPolicy` to finalization when supported, and record the actual resolved family in the build notes.
 5. Choose a layout by semantic role. Vary the visual grammar across the deck: cover, problem scene, interaction loop, system map, state graph, timeline, value split, equation-as-visual, iteration loop, model split, episode trace, update pipeline, matrix plus chart, two-lane comparison, and synthesis map are different roles. Do not alternate dark and light backgrounds mechanically, and do not repeat a title-plus-card-grid template on consecutive slides.
 6. Build diagrams as native objects. Use independent shapes, connectors, arrows, tables, and charts. Keep a label next to the object it describes, route connectors behind nodes or around text, and group semantically related objects when the API supports grouping. Do not flatten a diagram or an entire slide into an image.
-7. Treat formulas as designed objects. Classify complexity and editability before repair. Use an Office equation object only when the active runtime actually supports and preserves it. Otherwise use one independent, wide, editable formula text object with a math-capable typeface, a canonical notation, deliberate baseline/superscript/subscript treatment, and enough horizontal space to stay on one line. For complex source-backed notation, use only the controlled vector fallback described in `references/equation-strategy.md`. Never split one equation into scattered text boxes or allow a formula to wrap silently.
+7. Treat formulas as designed objects. Classify complexity and editability before repair. Use an Office equation object only when the active runtime actually supports and preserves it. Otherwise use one independent, wide, editable formula text object with a math-capable typeface, a canonical notation, deliberate baseline/superscript/subscript treatment, and enough horizontal space to stay on one line. For complex source-backed notation, use the controlled remote LaTeX → sanitized SVG fallback in `scripts/remote_latex_renderer.mjs` when permission is enabled and the render QA passes. Never split one equation into scattered text boxes or allow a formula to wrap silently.
 8. Use native data objects. Required tables and charts must remain editable. Put chart labels, units, legends, and conceptual-data disclosures in the chart or its immediate title area; do not duplicate every chart label in unrelated text boxes. Any illustrative score must be labeled `Conceptual illustration` and, when appropriate, explained in speaker notes.
-9. Run the full QA gate. Check package integrity, slide count, aspect ratio, overflow, heading fit, font family approval, small-text exceptions, formula wrapping, connector clarity, native chart/table presence, and editable object counts. Render the final candidate again and inspect each slide. Revisions use a new output filename so the baseline remains recoverable.
+9. Run the full QA gate. Check package integrity, slide count, aspect ratio, overflow, heading fit, font family approval, small-text exceptions, formula wrapping, connector clarity, native chart/table presence, editable object counts, remote SVG diagnostics, source/provenance retention, and absence of raster equation fallbacks. Render the final candidate again and inspect each slide. Revisions use a new output filename so the baseline remains recoverable.
 10. Handoff honestly. Report the output path, slide count, major changes, native/editable elements, and any runtime limitation such as a formula fallback. Do not claim that PowerPoint itself was opened or edited unless that was actually verified.
 
 ## Non-negotiable quality rules
@@ -66,6 +96,7 @@ Before opening the slide canvas, write the audience assumption, two to five lear
 - Use no more than three accent colors on one slide. Background changes should signal section or function, not page number.
 - Use a small, consistent icon grammar. Icons must have a semantic owner, common stroke/weight, a common baseline, and a meaningful size relationship with nearby text.
 - Preserve editability of the important evidence. Photos or complex scene illustrations may be images, but process diagrams, state graphs, tables, charts, labels, and equations must stay as independent editable objects whenever the runtime permits.
+- A remote equation SVG is a Level 1 vector fallback, not a character-editable formula. Preserve the LaTeX source separately, reject or disclose raster content, and keep the SVG's aspect ratio intact with `fit: "contain"`.
 
 ## Reference routing
 
@@ -79,3 +110,4 @@ Read only what the task needs:
 
 The helper `scripts/audit_presentation.py` is read-only. It is a preflight aid, not an authoring path.
 The helper `scripts/equation_diagnostics.py` is also read-only. Run it before and after formula repair; its JSON output is advisory and never replaces rendered inspection.
+The helper `scripts/remote_latex_renderer.mjs` creates only sanitized equation assets. `scripts/test_remote_latex_renderer.mjs` is the deterministic policy/cache/SVG unit test, and `scripts/build_remote_latex_test_deck.mjs` is the real-provider Artifact Tool regression fixture.

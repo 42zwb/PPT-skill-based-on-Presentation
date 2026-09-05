@@ -21,7 +21,11 @@ package alone cannot prove font availability on another computer, so report
 Formula objects also carry an editability classification: Level 3
 `native_math`, Level 2 `editable_math_text`, Level 1 `vector_equation`, or
 Level 0 `raster_equation`. A vector may be sharp and scalable but is not
-character-editable math.
+character-editable math. A Latin Modern Math text box is still only a Level 2
+`editable_math_text_approximation`; it is not LaTeX and not a native Office Math
+object. When source-backed fidelity matters, use the remote SVG path described
+in `references/equation-strategy.md`, with explicit remote permission and
+source/provenance retention.
 
 Use `resolvePresentationFont()` from the Presentations runtime to resolve requested families. If a requested family is unavailable, choose a deliberate fallback and use it consistently. Do not leave theme defaults active while explicitly setting another family on only some runs.
 
@@ -48,7 +52,7 @@ The exact family and size may vary, but the hierarchy must be explicit and repea
 4. Never split a single equation across unrelated text boxes. If a formula needs a visual derivation, put each complete expression on its own aligned row and connect rows with explicit labels such as `immediate reward` and `discounted future value`.
 5. Do not use a formula as a decorative micro-label. A formula must answer a question on the slide: what is being estimated, what is the target, or what is being optimized.
 6. Before export, test the longest formula in the family. The formula box must be wide enough for one line at the chosen size; if it is not, rewrite or redesign the slide instead of silently shrinking or wrapping.
-7. For matrices, cases, aligned/multiline expressions, nested scripts, limits, and long fraction/root/integral structures, classify the object as `moderate` or `complex`. Prefer a trusted source-backed vector fallback only when text fidelity materially fails and the SVG has tight transparent bounds. Never use a screenshot as an equation repair.
+7. For matrices, cases, aligned/multiline expressions, nested scripts, limits, and long fraction/root/integral structures, classify the object as `moderate` or `complex`. Prefer the tested remote LaTeX → SVG fallback only when text fidelity materially fails, the user/project allows equation-source upload, and the SVG has tight transparent bounds, paths/use, no external resources, and no raster content. Never use a screenshot as an equation repair.
 
 ## RL notation reference
 

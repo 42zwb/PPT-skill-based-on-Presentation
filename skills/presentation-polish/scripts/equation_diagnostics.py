@@ -123,7 +123,18 @@ def shape_bounds(shape: ET.Element) -> tuple[int, int, int, int] | None:
 
 
 def is_formula_like(text: str) -> bool:
-    return bool(text) and any(pattern.search(text) for pattern in FORMULA_PATTERNS)
+    if not text:
+        return False
+    compact = re.sub(r"\s+", "", text)
+    # Avoid treating configuration labels, prose, and diagnostic sentences as
+    # equations merely because they contain an equals sign or a single letter.
+    if re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{10,}=.+", compact):
+        return False
+    if len(text) > 90 and not re.search(r"\\[A-Za-z]+|[∑∫√πδγ]|\^|_|←|→", text):
+        return False
+    if text.count(":") >= 2 and not re.search(r"[∑∫√πδγ]|\\(?:frac|sum|int|sqrt)", text):
+        return False
+    return any(pattern.search(text) for pattern in FORMULA_PATTERNS)
 
 
 def classify_equation_complexity(source: str, breaks: int = 0) -> str:
@@ -197,6 +208,8 @@ def formula_diagnostics(
         warnings.append("EQUATION_COMPLEXITY_EXCEEDS_TEXT_MODE")
     if not fonts:
         warnings.append("MATH_FONT_UNDECLARED")
+    if any("latin modern math" in family.lower() for family in fonts):
+        warnings.append("LATEX_STYLE_FALSE_POSITIVE")
 
     return {
         "slide": slide_number,
@@ -206,6 +219,7 @@ def formula_diagnostics(
         "render_mode_recommendation": choose_render_mode(complexity, mode, has_source_latex),
         "editability_level": 2,
         "editability_type": "editable_math_text",
+        "notation_claim": "editable_math_text_approximation" if "LATEX_STYLE_FALSE_POSITIVE" in warnings else "editable_math_text",
         "preferred_font": preferred_font,
         "fallback_font": fallback_font,
         "effective_font": effective_font,
@@ -250,6 +264,32 @@ def slide_relationships(zf: zipfile.ZipFile, slide_name: str) -> dict[str, str]:
     return result
 
 
+def inspect_svg_asset(svg_text: str) -> dict[str, object]:
+    """Inspect an SVG picture without claiming how it was produced."""
+    root_match = re.search(r"<svg\b([^>]*)>", svg_text, re.I)
+    viewbox_match = re.search(r"\bviewBox\s*=\s*['\"]([^'\"]+)['\"]", root_match.group(1) if root_match else "", re.I)
+    viewbox_values: list[float] = []
+    if viewbox_match:
+        try:
+            viewbox_values = [float(value) for value in re.split(r"[ ,]+", viewbox_match.group(1).strip())]
+        except ValueError:
+            viewbox_values = []
+    has_viewbox = len(viewbox_values) == 4 and viewbox_values[2] > 0 and viewbox_values[3] > 0
+    has_path_or_use = bool(re.search(r"<(?:path|use)\b", svg_text, re.I))
+    has_text = bool(re.search(r"<text\b|font-family\s*=|@font-face", svg_text, re.I))
+    has_raster = bool(re.search(r"<image\b|data:image/(?:png|jpe?g|gif|webp)", svg_text, re.I))
+    has_external = bool(re.search(r"(?:href|xlink:href|src)\s*=\s*['\"](?:https?:|//|file:)|url\(\s*(?:https?:|//|file:)", svg_text, re.I))
+    return {
+        "has_svg_root": bool(root_match),
+        "has_valid_viewbox": has_viewbox,
+        "viewbox": viewbox_values if has_viewbox else None,
+        "has_path_or_use": has_path_or_use,
+        "has_text_or_font_dependency": has_text,
+        "has_raster_content": has_raster,
+        "has_external_resource": has_external,
+    }
+
+
 def picture_candidates(zf: zipfile.ZipFile, slide_name: str, root: ET.Element) -> list[dict[str, object]]:
     rels = slide_relationships(zf, slide_name)
     candidates: list[dict[str, object]] = []
@@ -270,7 +310,10 @@ def picture_candidates(zf: zipfile.ZipFile, slide_name: str, root: ET.Element) -
             if rid and rels.get(rid):
                 media_paths.append(rels[rid])
         media_paths = list(dict.fromkeys(media_paths))
-        media_path = media_paths[0] if media_paths else ""
+        # Artifact Tool may preserve both a preview PNG and the inserted SVG
+        # relationship. Inspect the SVG first; the first relationship is not
+        # a reliable indication of the source asset.
+        media_path = next((candidate for candidate in media_paths if Path(candidate).suffix.lower() == ".svg"), media_paths[0] if media_paths else "")
         lower_label = f"{label} {' '.join(media_paths)}".lower()
         # Artifact Tool versions may omit the supplied alt text from cNvPr. A
         # source-backed SVG containing math-like glyphs is still a useful
@@ -296,6 +339,25 @@ def picture_candidates(zf: zipfile.ZipFile, slide_name: str, root: ET.Element) -
         suffixes = {Path(candidate_path).suffix.lower() for candidate_path in media_paths}
         suffix = ".svg" if ".svg" in suffixes else (next(iter(suffixes), ""))
         kind = "vector_equation" if suffix in {".svg", ".emf", ".wmf"} else "raster_equation"
+        svg_inspection: dict[str, object] | None = None
+        svg_warnings: list[str] = []
+        if suffix == ".svg" and media_path:
+            try:
+                svg_text = zf.read(media_path).decode("utf-8", errors="ignore")
+                svg_inspection = inspect_svg_asset(svg_text)
+                if not svg_inspection["has_svg_root"] or not svg_inspection["has_valid_viewbox"]:
+                    svg_warnings.append("REMOTE_LATEX_INVALID_SVG")
+                if not svg_inspection["has_path_or_use"]:
+                    svg_warnings.append("REMOTE_LATEX_SVG_NO_VECTOR_PATH")
+                if svg_inspection["has_text_or_font_dependency"]:
+                    svg_warnings.append("REMOTE_LATEX_SVG_FONT_DEPENDENCY")
+                if svg_inspection["has_raster_content"]:
+                    svg_warnings.append("REMOTE_LATEX_SVG_RASTER_CONTENT")
+                if svg_inspection["has_external_resource"]:
+                    svg_warnings.append("REMOTE_LATEX_SVG_EXTERNAL_RESOURCE")
+            except (KeyError, UnicodeError):
+                svg_inspection = None
+                svg_warnings.append("REMOTE_LATEX_INVALID_SVG")
         candidates.append(
             {
                 "slide": int(re.search(r"(\d+)", Path(slide_name).name).group(1)),
@@ -305,7 +367,8 @@ def picture_candidates(zf: zipfile.ZipFile, slide_name: str, root: ET.Element) -
                 "media_paths": media_paths,
                 "editability_level": EDITABILITY_LEVELS[kind],
                 "editability_type": kind,
-                "warnings": [] if kind == "vector_equation" else ["EQUATION_RASTERIZED"],
+                "warnings": ([] if kind == "vector_equation" else ["EQUATION_RASTERIZED"]) + svg_warnings,
+                "svg_inspection": svg_inspection,
             }
         )
     return candidates
@@ -377,7 +440,8 @@ def audit(path: Path, mode: str, preferred_font: str, fallback_font: str) -> dic
         for item in equations:
             for warning in item["warnings"]:
                 diagnostics.append({"code": warning, "severity": "warning", "slide": item["slide"], "shape_index": item["shape_index"], "source": item["source"]})
-        diagnostics.extend({"code": warning, "severity": "warning", **candidate} for candidate in raster_candidates for warning in candidate["warnings"])
+        all_picture_candidates = [*vector_candidates, *raster_candidates]
+        diagnostics.extend({"code": warning, "severity": "warning", **candidate} for candidate in all_picture_candidates for warning in candidate["warnings"])
 
         counts = Counter(item["complexity"] for item in equations)
         levels = Counter(item["editability_type"] for item in equations)
