@@ -26,6 +26,9 @@ Run the checks in this order. A passing structural test is necessary but not suf
 - [ ] For remote SVG equations, `allowRemoteEquationRendering` was explicit, only equation source was sent, and the source/provider/cache provenance was retained.
 - [ ] Remote SVG inspection passed `viewBox`, `path/use`, aspect-ratio, external-resource, font-dependency, white-background, and raster-content checks.
 - [ ] Remote diagnostics were reviewed: `REMOTE_LATEX_RENDERED` / `REMOTE_LATEX_CACHE_HIT` are expected successes; timeout, HTTP, invalid-SVG, disabled, fallback, and `EQUATION_RASTER_FALLBACK` remain disclosed.
+- [ ] Meaningful subscript/superscript/prime/star tokens (`S_t`, `A_t`, `R_{t+1}`, `G_t`, `S_1/S_2/S_3`, `\pi^*`) are independent, single-line visual units rather than accidental Unicode glyphs or narrow prose boxes.
+- [ ] Repeated formula tokens share a consistent rendering route, size, baseline, and padding.
+- [ ] Mixed title-plus-variable nodes use an intentional inline or stacked composite; the variable is not stranded, wrapped, or visually detached from its owner.
 
 ## 3. Geometry and visual QA
 
@@ -36,6 +39,9 @@ Run the checks in this order. A passing structural test is necessary but not suf
 - [ ] There are no overlaps, clipped glyphs, unexpected line breaks, or misaligned icons.
 - [ ] Render QA explicitly checks `EQUATION_CLIPPED`, `EQUATION_BASELINE_MISALIGNED`, `EQUATION_LOW_RESOLUTION`, and `EQUATION_VECTOR_PADDING_EXCESSIVE`; package metadata alone cannot close these findings.
 - [ ] Connectors do not cross unrelated text or terminate inside nodes.
+- [ ] Connector labels have a visible owner, readable size, and enough clearance from nodes and neighboring labels.
+- [ ] Branch labels are explicit when the action or transition would otherwise be ambiguous.
+- [ ] Any defect found in one repeated component pattern has been swept across analogous slides and instances.
 - [ ] Contrast remains readable on both dark and light surfaces.
 - [ ] A full-size inspection was performed for every slide, not only a montage.
 - [ ] The final full-size inspection happened after the last repair, not only before it.

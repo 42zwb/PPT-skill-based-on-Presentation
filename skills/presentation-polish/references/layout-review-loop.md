@@ -38,6 +38,22 @@ or explicitly accepted as intentional template chrome.
   connector. Use it only when its source and target are obvious; otherwise use
   a native connector or place the symbol inside a bounded formula/diagram.
 
+### Notation ownership
+
+Mathematical notation needs a stronger ownership rule than ordinary copy. A
+state/action/reward/value token such as `S_t`, `A_t`, `R_{t+1}`, `G_t`, `S_1`, or
+`\pi^*` is one semantic unit. Keep it in one independent LaTeX/SVG object or in
+a deliberately wide, single-line inline zone. Do not split the base symbol and
+its subscript into unrelated text boxes, and do not substitute Unicode
+subscripts merely because the text box is convenient. When a node has both
+prose and notation, use a bounded inline or stacked composite so the title,
+token, and node border read as one unit.
+
+Repeated notation must be normalized as a family: same rendering route,
+baseline, approximate visual size, and internal padding. If a repeated token
+wraps or drifts once, treat it as a component-level defect and repair every
+instance.
+
 ### Spatial hierarchy and grid
 
 - Establish the content frame after accounting for template chrome. Align
@@ -52,6 +68,13 @@ or explicitly accepted as intentional template chrome.
 - When a row contains prose, a formula, and a second prose label, give each a
   dedicated zone. Do not force different semantic roles into one horizontal
   strip merely because they fit numerically.
+- A two-line text box is not a valid substitute for a cramped one-line label.
+  Shorten the copy, increase the box height and leading, or split the content
+  into intentional zones. Never let a word, formula, or label break merely
+  because the box was sized before the final font was chosen.
+- Give long labels and feedback rows a measured label column. Allocate width
+  to the longest token before export; do not allow `REWARD`, `STATE`, `S_{t+1}`,
+  or similar labels to wrap unexpectedly.
 
 ### Typography and formulas
 
@@ -75,6 +98,15 @@ or explicitly accepted as intentional template chrome.
 - Route connectors behind nodes and away from labels. Every line must have a
   source, target, and limited semantic meaning; remove decorative lines that
   do not explain a relationship.
+- Connector labels in a diagram should normally be at least 12–14 pt and
+  should not be reduced below that range just to preserve a crowded
+  composition. If the label cannot fit, route or resize the diagram first.
+- Action labels must be explicit when a graph has multiple branches: prefer
+  `a = left`, `a = right`, `A_t`, or an equivalent unambiguous form over a
+  floating word whose arrow ownership is unclear.
+- Do not route arrows through nodes, formula objects, or labels. Keep primary
+  arrows straight where possible; use a curved route only when it communicates
+  a deliberate return loop.
 - For comparisons, make the two sides structurally parallel: same title
   position, same path row, same formula zone, and paired conclusion area.
 - For charts, keep the title, units, legend, data disclosure, and explanatory
@@ -106,4 +138,3 @@ Before delivery, compare the pre-repair and post-repair render sets and check:
 - every important table/chart/diagram/equation remains a distinct editable
   object at the documented level;
 - the full-size render of every slide was inspected after the last change.
-
