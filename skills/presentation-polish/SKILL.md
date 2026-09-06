@@ -9,7 +9,7 @@ Use this skill as a deliberate second pass after `presentations:Presentations`, 
 
 ## First principle
 
-Polish the reading path before adding decoration. Every slide needs one main claim, one visual anchor, and a visible reading order. Treat typography, formulas, labels, connectors, and object grouping as part of the argument, not as finishing touches.
+Polish the reading path before adding decoration. Every slide needs one main claim, one visual anchor, and a visible reading order. Treat typography, formulas, labels, connectors, and object grouping as part of the argument, not as finishing touches. A passing overflow test is not a visual pass: render first, log concrete layout defects, repair their causes, and render again.
 
 ## Architecture boundary
 
@@ -96,8 +96,9 @@ Before opening the slide canvas, write the audience assumption, two to five lear
 6. Build diagrams as native objects. Use independent shapes, connectors, arrows, tables, and charts. Keep a label next to the object it describes, route connectors behind nodes or around text, and group semantically related objects when the API supports grouping. Do not flatten a diagram or an entire slide into an image.
 7. Treat formulas as designed objects. Classify source and display role before repair. In the academic/scientific profile, use the controlled remote LaTeX → sanitized SVG path for all standalone/display and nontrivial equations when the user has authorized equation-source upload; do not try to imitate a fraction, integral, expectation, superscript, subscript, or argmax with scattered text fragments. Use an Office equation object only when the active runtime actually supports and preserves it and the user explicitly prioritizes character editability. Otherwise insert one independent SVG with preserved aspect ratio, tight bounds, a canonical source string, and a clear visual owner. Never split one equation into scattered text boxes or allow a formula to wrap silently.
 8. Use native data objects. Required tables and charts must remain editable. Put chart labels, units, legends, and conceptual-data disclosures in the chart or its immediate title area; do not duplicate every chart label in unrelated text boxes. Any illustrative score must be labeled `Conceptual illustration` and, when appropriate, explained in speaker notes.
-9. Run the full QA gate. Check package integrity, slide count, aspect ratio, overflow, heading fit, font family approval, small-text exceptions, formula wrapping, connector clarity, native chart/table presence, editable object counts, remote SVG diagnostics, source/provenance retention, and absence of raster equation fallbacks. Render the final candidate again and inspect each slide. Revisions use a new output filename so the baseline remains recoverable.
-10. Handoff honestly. Report the output path, slide count, major changes, native/editable elements, and any runtime limitation such as a formula fallback. Do not claim that PowerPoint itself was opened or edited unless that was actually verified.
+9. Run the optical repair loop in `references/layout-review-loop.md`. Before editing, log each P0/P1/P2/P3 finding with a slide number, symptom, cause, repair, and verification. Close content ownership, reading-order, geometry, formula-fit, connector, and typography findings in that order; do not use smaller type or extra pills to hide a crowded composition.
+10. Run the full QA gate. Check package integrity, slide count, aspect ratio, overflow, heading fit, font family approval, small-text exceptions, formula wrapping, connector clarity, native chart/table presence, editable object counts, remote SVG diagnostics, source/provenance retention, and absence of raster equation fallbacks. Render the final candidate again and inspect each slide. Revisions use a new output filename so the baseline remains recoverable.
+11. Handoff honestly. Report the output path, slide count, major changes, native/editable elements, and any runtime limitation such as a formula fallback. Do not claim that PowerPoint itself was opened or edited unless that was actually verified.
 
 ## Non-negotiable quality rules
 
@@ -107,6 +108,7 @@ Before opening the slide canvas, write the audience assumption, two to five lear
 - A card is allowed only when it groups a real concept. Avoid a page made from many similarly sized UI cards, badges, pills, or isolated stat fragments.
 - A title, subtitle, kicker, footer, folio, and decorative numeral are optional. Keep only the elements that support the slide's claim.
 - Align to a visible grid and maintain safe margins. Do not let a formula, heading, icon, or connector touch a frame edge. Test the longest title and the widest formula, not just the average case.
+- Do not accept a slide solely because `slides_test.py` reports no overflow. The final optical review must close floating objects, competing reading paths, unpaired comparison zones, and weakly owned annotations.
 - Use no more than three accent colors on one slide. Background changes should signal section or function, not page number.
 - Use a small, consistent icon grammar. Icons must have a semantic owner, common stroke/weight, a common baseline, and a meaningful size relationship with nearby text.
 - Preserve editability of the important evidence. Photos or complex scene illustrations may be images, but process diagrams, state graphs, tables, charts, labels, and equations must stay as independent editable objects whenever the runtime permits.
@@ -122,6 +124,7 @@ Read only what the task needs:
 - `references/equation-strategy.md` when equations need editability classification, complexity decisions, font availability reporting, SVG fallback, or equation-specific diagnostics.
 - `references/template-following.md` when a source `.pptx` template is provided, when a deck must inherit an existing master/layout, or when the official template helper is not Windows-safe.
 - `references/qa-checklist.md` before export or when a rendered deck looks plausible but still feels misaligned.
+- `references/layout-review-loop.md` whenever a rendered deck needs a visual defect list, targeted layout repair, or a second-pass acceptance decision.
 
 The helper `scripts/audit_presentation.py` is read-only. It is a preflight aid, not an authoring path.
 The helper `scripts/equation_diagnostics.py` is also read-only. Run it before and after formula repair; its JSON output is advisory and never replaces rendered inspection.

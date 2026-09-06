@@ -30,12 +30,15 @@ Run the checks in this order. A passing structural test is necessary but not suf
 ## 3. Geometry and visual QA
 
 - [ ] Safe margins are respected.
+- [ ] A rendered issue log exists with slide, severity, symptom, cause, repair, and verification for each nontrivial finding.
+- [ ] Every label, formula, badge, icon, and connector has a visible semantic owner; there are no floating fragments or duplicate reading paths.
 - [ ] Longest title and longest formula have been rendered and inspected.
 - [ ] There are no overlaps, clipped glyphs, unexpected line breaks, or misaligned icons.
 - [ ] Render QA explicitly checks `EQUATION_CLIPPED`, `EQUATION_BASELINE_MISALIGNED`, `EQUATION_LOW_RESOLUTION`, and `EQUATION_VECTOR_PADDING_EXCESSIVE`; package metadata alone cannot close these findings.
 - [ ] Connectors do not cross unrelated text or terminate inside nodes.
 - [ ] Contrast remains readable on both dark and light surfaces.
 - [ ] A full-size inspection was performed for every slide, not only a montage.
+- [ ] The final full-size inspection happened after the last repair, not only before it.
 
 ## 4. Native editability
 
